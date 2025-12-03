@@ -1,0 +1,111 @@
+﻿# Rotation-enabled free-space placer (tries 6 orthogonal orientations)
+# Simple first-fit with basic free-space splitting. No merging.
+
+import math
+from copy import deepcopy
+
+# All 6 axis-aligned orientations (l,w,h permutations)
+ORIENTATIONS = [
+    ("l","w","h"),
+    ("l","h","w"),
+    ("w","l","h"),
+    ("w","h","l"),
+    ("h","l","w"),
+    ("h","w","l"),
+]
+
+class FreeSpace:
+    def __init__(self, x, y, z, l, w, h):
+        self.x = x; self.y = y; self.z = z
+        self.l = l; self.w = w; self.h = h
+
+    def fits_dims(self, l, w, h):
+        return (l <= self.l + 1e-9) and (w <= self.w + 1e-9) and (h <= self.h + 1e-9)
+
+    def __repr__(self):
+        return f"FS(({self.x},{self.y},{self.z}) {self.l}x{self.w}x{self.h})"
+
+def try_place_box_in_fs(box, fs):
+    """
+    Try all 6 orientations for box inside fs.
+    Choose the orientation that fits and yields the smallest leftover volume
+    in that free-space (best-fit).
+    Returns chosen (l,w,h) or None.
+    """
+    b = {'l': box['length'], 'w': box['width'], 'h': box['height']}
+    candidates = []
+    for ox in ORIENTATIONS:
+        l = b[ox[0]]; w = b[ox[1]]; h = b[ox[2]]
+        if fs.fits_dims(l, w, h):
+            # compute leftover space volume if placed at fs origin
+            leftover_l = fs.l - l
+            leftover_w = fs.w - w
+            leftover_h = fs.h - h
+            # leftover volume (conservative, non-negative)
+            leftover_vol = max(leftover_l,0) * max(leftover_w,0) * max(leftover_h,0)
+            candidates.append((leftover_vol, (l, w, h)))
+    if not candidates:
+        return None
+    # choose orientation with smallest leftover volume (best-fit)
+    candidates.sort(key=lambda x: x[0])
+    return candidates[0][1]
+
+def place_boxes_in_container(container, boxes, max_boxes=None):
+    """
+    container: dict with L,W,H
+    boxes: list of dicts {'box_id','length','width','height'}
+    returns: placements list [{'box_id','x','y','z','l','w','h'}], packed_volume, placed_count
+    Strategy:
+      - For each box (in given order) try to place it in the first free space with any orientation
+      - If placed, split free space into a small set of children (right/front/top + extras)
+      - This is a simple heuristic (no merging)
+    """
+    free = [FreeSpace(0,0,0, container['L'], container['W'], container['H'])]
+    placements = []
+    packed_vol = 0.0
+    placed_count = 0
+
+    for box in boxes:
+        if max_boxes and placed_count >= max_boxes:
+            break
+        placed = False
+        for i, fs in enumerate(free):
+            chosen = try_place_box_in_fs(box, fs)
+            if chosen:
+                l, w, h = chosen
+                # place at fs origin
+                placements.append({
+                    'box_id': box['box_id'],
+                    'x': fs.x,
+                    'y': fs.y,
+                    'z': fs.z,
+                    'l': l,
+                    'w': w,
+                    'h': h
+                })
+                packed_vol += l * w * h
+                placed_count += 1
+                # Split used free space into new free spaces (conservative)
+                # Right space (x + l)
+                                # Right space
+                rx = FreeSpace(fs.x + l, fs.y, fs.z, fs.l - l, fs.w, fs.h)
+
+                # Front space
+                fy = FreeSpace(fs.x, fs.y + w, fs.z, l, fs.w - w, fs.h)
+
+                # Top space
+                tz = FreeSpace(fs.x, fs.y, fs.z + h, l, w, fs.h - h)
+
+                new_spaces = []
+                for s in [rx, fy, tz]:
+                    if s.l > 1e-6 and s.w > 1e-6 and s.h > 1e-6:
+                        new_spaces.append(s)
+
+                # remove used fs and insert new ones at front
+                del free[i]
+                free = new_spaces + free
+                placed = True
+                break
+        if not placed:
+            continue
+    return placements, packed_vol, placed_count

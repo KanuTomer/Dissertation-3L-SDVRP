@@ -1,0 +1,7 @@
+[tool.poetry]
+name = "dataset-generation"
+version = "0.1.0"
+description = "Dataset generation pipeline for Dissertation"
+
+[tool.poetry.dependencies]
+python = "^3.10"

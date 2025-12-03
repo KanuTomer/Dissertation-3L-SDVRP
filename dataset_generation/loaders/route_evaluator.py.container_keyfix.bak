@@ -1,0 +1,106 @@
+﻿import json
+from pathlib import Path
+from typing import Tuple, Dict, List
+
+def load_merged(merged_json_path: str) -> Tuple[str, dict, list, list]:
+    p = Path(merged_json_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Merged JSON not found: {p.resolve()}")
+    with p.open("r", encoding="utf-8-sig") as f:
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse merged JSON {p.resolve()}: {e}") from e
+
+    inst_name = d.get("inst_name") or d.get("name") or p.stem
+    container = d.get("container", {})
+    customers = d.get("customers", [])
+    boxes = d.get("boxes", [])
+    return inst_name, container, customers, boxes
+
+# Import the real packer (we just wrote it)
+try:
+    from dataset_generation.utils.packer import place_boxes_in_container as _place_boxes_in_container
+    _HAS_PACKER = True
+except Exception:
+    _HAS_PACKER = False
+
+def evaluate_route(merged_json_path: str, route: List[int]) -> Dict:
+    """
+    Build the boxes subset for the route (from customers' assigned_boxes) and call the packer.
+    Normalize packer output: placements, packed_vol, placed_count -> expected dict.
+    """
+    try:
+        inst_name, container, customers, boxes = load_merged(merged_json_path)
+    except Exception:
+        return {"feasible": False, "boxes_total": 0, "boxes_packed": 0, "fill_rate": 0.0}
+
+    # Build mapping of box_id -> box dict for lookup
+    box_map = {b.get("box_id"): b for b in boxes}
+
+    # Collect boxes for this route by customer assigned_boxes (preserve order)
+    boxes_for_route = []
+    for cid in route:
+        # find customer
+        c = next((x for x in customers if x.get("customer_id") == cid), None)
+        if c:
+            for bid in c.get("assigned_boxes", []):
+                b = box_map.get(bid)
+                if b:
+                    boxes_for_route.append(b)
+
+    # If no assigned boxes found, fallback to using all boxes (compatibility)
+    if not boxes_for_route:
+        boxes_for_route = boxes.copy()
+
+    boxes_total = len(boxes_for_route)
+
+    # If packer available, call it using correct signature
+    if _HAS_PACKER:
+        try:
+            placements, packed_vol, placed_count = _place_boxes_in_container(container, boxes_for_route)
+            fill_rate = 0.0
+            try:
+                # compute container volume if L,W,H keys exist (fall back to 1 to avoid div by 0)
+                vol = container.get("L", None)
+                if vol is None:
+                    vol = container.get("length", None)
+                if vol is None:
+                    # try keys with upper-case or named differently
+                    vol = container.get("l", None)
+                if vol is None:
+                    # try compute from L,W,H
+                    L = container.get("L", container.get("length", container.get("l", 0)))
+                    W = container.get("W", container.get("width", container.get("w", 0)))
+                    H = container.get("H", container.get("height", container.get("h", 0)))
+                    if L and W and H:
+                        vol = float(L) * float(W) * float(H)
+                    else:
+                        vol = None
+                if vol and isinstance(vol, (int,float)):
+                    # if vol is a single number (unlikely), treat as container volume
+                    if not (container.get("L") and container.get("W") and container.get("H")):
+                        container_vol = float(vol)
+                    else:
+                        container_vol = float(vol)
+                else:
+                    container_vol = float(container.get("L", 1) * container.get("W", 1) * container.get("H", 1))
+            except Exception:
+                container_vol = 1.0
+            if container_vol > 0:
+                fill_rate = float(packed_vol) / float(container_vol)
+            feasible = (placed_count == boxes_total) or (boxes_total == 0)
+            return {
+                "feasible": bool(feasible),
+                "boxes_total": int(boxes_total),
+                "boxes_packed": int(placed_count),
+                "fill_rate": float(fill_rate),
+            }
+        except Exception as e:
+            print(f"[route_evaluator] packer invocation failed: {e}")
+
+    # fallback heuristic if packer missing/fails
+    packed = min(boxes_total, max(0, int(len(route) * 0.5)))
+    fill_rate = (packed / boxes_total) if boxes_total > 0 else 0.0
+    feasible = True if boxes_total == 0 else (fill_rate >= 0.0)
+    return {"feasible": bool(feasible), "boxes_total": boxes_total, "boxes_packed": packed, "fill_rate": fill_rate}

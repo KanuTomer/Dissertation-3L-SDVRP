@@ -1,0 +1,15 @@
+{
+  "use_isolator": true,
+  "cx_prob": 0.6,
+  "name": "vlr_ga_experiment",
+  "num_generations": 200,
+  "population_size": 150,
+  "dataset_path": "datasets/my_route_and_boxes.json",
+  "selection": "tournament",
+  "crossover": "order_based",
+  "mut_prob": 0.95,
+  "algorithm": "ga",
+  "output_dir": "experiments_output/debug_mut95",
+  "mutation": "vlr",
+  "seed": 9999
+}

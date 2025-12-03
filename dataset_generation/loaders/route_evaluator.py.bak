@@ -1,0 +1,121 @@
+# route_evaluator.py
+import os, json, csv, random
+from dataset_generation.utils.packer import place_boxes_in_container
+
+def load_merged(merged_json_path):
+    """
+    Loads merged JSON + customers and boxes CSVs.
+    Returns: instance_name, container(dict), customers(list of dicts), boxes(list of dicts)
+    customers rows expected: customer_id,x,y,demand,assigned_boxes (semicolon-separated box_ids)
+    boxes rows expected: box_id,length,width,height,weight
+    """
+    base = os.path.dirname(merged_json_path)
+    d = json.load(open(merged_json_path))
+    container = d['container']
+    # read boxes
+    boxes_file = os.path.join(base, d['boxes_file'])
+    boxes = []
+    with open(boxes_file) as f:
+        rdr = csv.DictReader(f)
+        for idx, r in enumerate(rdr, start=1):
+            boxes.append({
+                'box_id': int(idx),   # sequential ids (consistent with earlier fixes)
+                'length': float(r['length']),
+                'width': float(r['width']),
+                'height': float(r['height'])
+            })
+    # read customers
+    customers_file = os.path.join(base, f"{d['instance_name']}_customers.csv")
+    customers = []
+    if os.path.exists(customers_file):
+        with open(customers_file) as f:
+            rdr = csv.DictReader(f)
+            for r in rdr:
+                assigned = []
+                if r.get('assigned_boxes'):
+                    # assigned boxes stored as "1;2;3"
+                    assigned = [int(x) for x in r['assigned_boxes'].split(';') if x.strip()]
+                customers.append({
+                    'customer_id': int(r['customer_id']),
+                    'x': float(r['x']),
+                    'y': float(r['y']),
+                    'demand': r.get('demand'),
+                    'assigned_boxes': assigned
+                })
+    else:
+        raise FileNotFoundError("Customers file not found: " + customers_file)
+    return d['instance_name'], container, customers, boxes
+
+def boxes_for_route(customers, boxes, route_customer_ids):
+    """
+    Gather all boxes (full dicts) assigned to the customers in route_customer_ids.
+    boxes is a list indexed by 1..N box_id (we used sequential ids). Convert to map.
+    """
+    box_map = {b['box_id']: b for b in boxes}
+    selected = []
+    for cid in route_customer_ids:
+        cust = next((c for c in customers if c['customer_id'] == cid), None)
+        if not cust:
+            continue
+        for bid in cust['assigned_boxes']:
+            if bid in box_map:
+                selected.append({
+                    'box_id': box_map[bid]['box_id'],
+                    'length': box_map[bid]['length'],
+                    'width': box_map[bid]['width'],
+                    'height': box_map[bid]['height']
+                })
+    return selected
+
+def evaluate_route(merged_json_path, route_customer_ids):
+    name, container, customers, boxes = load_merged(merged_json_path)
+    sel = boxes_for_route(customers, boxes, route_customer_ids)
+    if not sel:
+        return {'boxes_total':0, 'boxes_packed':0, 'packed_volume':0.0, 'fill_rate':0.0, 'feasible': True}
+    placements, packed_vol, packed_cnt = place_boxes_in_container(container, sel)
+    total_vol = sum(b['length']*b['width']*b['height'] for b in sel)
+    fill_rate = packed_vol / (container['L']*container['W']*container['H'])
+    feasible = (packed_cnt == len(sel))
+    return {
+        'boxes_total': len(sel),
+        'boxes_packed': packed_cnt,
+        'packed_volume': packed_vol,
+        'total_volume': total_vol,
+        'fill_rate': fill_rate,
+        'feasible': feasible,
+        'placements': placements
+    }
+
+# Utility: sample many random routes and evaluate
+def sample_random_routes(merged_json_path, route_size, samples=200, seed=42):
+    name, container, customers, boxes = load_merged(merged_json_path)
+    cust_ids = [c['customer_id'] for c in customers]
+    random.seed(seed)
+    results = []
+    for _ in range(samples):
+        route = random.sample(cust_ids, min(route_size, len(cust_ids)))
+        res = evaluate_route(merged_json_path, route)
+        res['route'] = route
+        results.append(res)
+    return results
+
+if __name__ == "__main__":
+    import sys, statistics
+    if len(sys.argv) < 3:
+        print("Usage: python route_evaluator.py <merged_json_path> <route_size> [samples]")
+        print("Example: python route_evaluator.py ../Benchmark.../Output/merged/XML100_1111_01_merged.json 8 300")
+        sys.exit(1)
+    merged = sys.argv[1]
+    size = int(sys.argv[2])
+    samples = int(sys.argv[3]) if len(sys.argv) > 3 else 200
+    out = sample_random_routes(merged, size, samples)
+    feas = sum(1 for r in out if r['feasible']) / len(out)
+    frs = [r['fill_rate'] for r in out]
+    print(f"Sampled {len(out)} routes of size {size}: feasible_fraction={feas:.3f}")
+    print("fill_rate: mean=", round(statistics.mean(frs),4), "std=", round(statistics.pstdev(frs),4))
+    # show 3 worst infeasible examples
+    infeas = [r for r in out if not r['feasible']]
+    infeas_sorted = sorted(infeas, key=lambda x: x['fill_rate'], reverse=True)
+    print("Example infeasible routes (top 3 by fill_rate):")
+    for r in infeas_sorted[:3]:
+        print(" route len", len(r['route']), "boxes", r['boxes_total'], "packed", r['boxes_packed'], "fill_rate", round(r['fill_rate'],4))

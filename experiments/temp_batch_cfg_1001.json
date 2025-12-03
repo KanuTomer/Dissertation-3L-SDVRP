@@ -1,0 +1,14 @@
+﻿{
+    "use_isolator":  true,
+    "cx_prob":  0.8,
+    "name":  "vlr_ga_experiment",
+    "num_generations":  200,
+    "population_size":  100,
+    "dataset_path":  "C:\\Kanu\\Dissertation\\Benchmark dataset and instance generator for Real-World 3dBPP\\Output\\merged\\XML100_1111_01_merged_with_boxes.json",
+    "selection":  "tournament",
+    "crossover":  "order_based",
+    "mut_prob":  0.6,
+    "algorithm":  "ga",
+    "output_dir":  "experiments_output/{vlr_ga_experiment}_seed1001",
+    "mutation":  "vlr"
+}

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+env/
+
+# Output folders
+experiments_output/
+results/
+output/
+route_ga_out/
+route_ga_vlr_out/
+route_ga_vlr_byboxes_out/
+
+# Logs
+*.log
+
+# Large datasets
+input_dataset/*.json
+input_dataset/*.csv

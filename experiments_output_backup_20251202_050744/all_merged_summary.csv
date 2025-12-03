@@ -1,0 +1,6 @@
+﻿file,best_score,unpacked,infeasible,duration,population_size,num_generations,mut_prob,cx_prob,use_isolator
+"C:\Kanu\Dissertation\Benchmark dataset and instance generator for Real-World 3dBPP\Output\merged\XML100_1111_01_merged.json","23782.910810055637","0","0","42.90871334075928","100","200","0.6","0.8","True"
+"C:\Kanu\Dissertation\Benchmark dataset and instance generator for Real-World 3dBPP\Output\merged\XML100_1111_01_merged_with_boxes.json","23782.910810055637","0","0","43.33211088180542","100","200","0.6","0.8","True"
+"C:\Kanu\Dissertation\Benchmark dataset and instance generator for Real-World 3dBPP\Output\merged\XML100_1111_01_merged_with_boxes_attached.json","100000022.45301814","12","1","66.2640552520752","100","200","0.6","0.8","True"
+"C:\Kanu\Dissertation\Benchmark dataset and instance generator for Real-World 3dBPP\Output\merged\XML100_1111_02_merged.json","100000022.45301814","12","1","66.2640552520752","100","200","0.6","0.8","True"
+"C:\Kanu\Dissertation\Benchmark dataset and instance generator for Real-World 3dBPP\Output\merged\XML100_1111_03_merged.json","100000022.45301814","12","1","66.2640552520752","100","200","0.6","0.8","True"

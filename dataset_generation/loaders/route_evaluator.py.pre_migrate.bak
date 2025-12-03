@@ -1,0 +1,53 @@
+﻿import os
+import json
+from pathlib import Path
+from typing import Tuple, Dict, List
+
+def load_merged(merged_json_path: str) -> Tuple[str, dict, list, list]:
+    """
+    Load a merged dataset file (path or Path). Returns:
+      inst_name, container (dict), customers (list), boxes (list)
+    This function tolerates BOMs and returns clear errors if parsing fails.
+    """
+    p = Path(merged_json_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Merged JSON not found: {p.resolve()}")
+    with p.open("r", encoding="utf-8-sig") as f:
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse merged JSON {p.resolve()}: {e}") from e
+
+    # Normalise keys expected by legacy code
+    inst_name = d.get("inst_name") or d.get("name") or p.stem
+    container = d.get("container", {})
+    customers = d.get("customers", [])
+    boxes = d.get("boxes", [])
+    return inst_name, container, customers, boxes
+
+def evaluate_route(merged_json_path: str, route: List[int]) -> Dict:
+    """
+    Lightweight stub for packing evaluation used by the GA smoke-test.
+    The real function in legacy code runs a packer to test box placement.
+    This stub returns feasible=True and simple metrics so the GA can run.
+    Replace this with the real packing/evaluation logic when migrating fully.
+    """
+    # Load merged file only to be consistent with previous API (but don't need contents)
+    try:
+        _, container, customers, boxes = load_merged(merged_json_path)
+    except Exception:
+        # If load fails, return an infeasible marker so GA can proceed but penalize
+        return {"feasible": False, "boxes_total": 0, "boxes_packed": 0, "fill_rate": 0.0}
+
+    # Simple heuristics for smoke test:
+    boxes_total = len(boxes)
+    # pretend we packed a proportional amount based on route length
+    packed = min(boxes_total, max(0, int(len(route) * 0.5)))
+    fill_rate = (packed / boxes_total) if boxes_total > 0 else 0.0
+
+    return {
+        "feasible": True,
+        "boxes_total": boxes_total,
+        "boxes_packed": packed,
+        "fill_rate": fill_rate,
+    }

@@ -1,0 +1,31 @@
+{
+  "best_order": [
+    3,
+    2,
+    1
+  ],
+  "best_score": 34.14213562373095,
+  "best_info": {
+    "total_distance": 34.14213562373095,
+    "infeasible_count": 0,
+    "routes": [
+      {
+        "route": [
+          3,
+          2,
+          1
+        ],
+        "distance": 34.14213562373095,
+        "feasible": true,
+        "boxes_total": 0,
+        "boxes_packed": 0,
+        "fill_rate": 0.0
+      }
+    ]
+  },
+  "history": [
+    34.14213562373095,
+    34.14213562373095
+  ],
+  "duration": 0.001031637191772461
+}

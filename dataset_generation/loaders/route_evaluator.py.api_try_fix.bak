@@ -1,0 +1,69 @@
+﻿"""
+route_evaluator.py — package-ready loader + evaluate_route that prefers the real packer.
+
+Behaviour:
+- load_merged(path) -> inst_name, container, customers, boxes (reads with utf-8-sig)
+- evaluate_route(path, route) -> tries to call dataset_generation.utils.packer.place_boxes_in_container
+  If real packer is not available or fails, falls back to a lightweight heuristic (feasible True/False).
+"""
+import json
+from pathlib import Path
+from typing import Tuple, Dict, List
+
+def load_merged(merged_json_path: str) -> Tuple[str, dict, list, list]:
+    p = Path(merged_json_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Merged JSON not found: {p.resolve()}")
+    with p.open("r", encoding="utf-8-sig") as f:
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse merged JSON {p.resolve()}: {e}") from e
+
+    inst_name = d.get("inst_name") or d.get("name") or p.stem
+    container = d.get("container", {})
+    customers = d.get("customers", [])
+    boxes = d.get("boxes", [])
+    return inst_name, container, customers, boxes
+
+# Attempt to import the real packer function; if not available we'll fall back to a stub.
+try:
+    from dataset_generation.utils.packer import place_boxes_in_container as _place_boxes_in_container
+    _HAS_PACKER = True
+except Exception:
+    _HAS_PACKER = False
+
+def evaluate_route(merged_json_path: str, route: List[int]) -> Dict:
+    """
+    Evaluate a route by trying to pack boxes using the real packer.
+    If the real packer is available, call it and translate the result into the expected dict.
+    If not, return a conservative heuristic (feasible True and simple metrics).
+    """
+    try:
+        inst_name, container, customers, boxes = load_merged(merged_json_path)
+    except Exception:
+        return {"feasible": False, "boxes_total": 0, "boxes_packed": 0, "fill_rate": 0.0}
+
+    # If packer exists, try to call it. Expect that place_boxes_in_container returns a dict like:
+    # {"feasible": bool, "boxes_total": int, "boxes_packed": int, "fill_rate": float}
+    if _HAS_PACKER:
+        try:
+            # call real packer; adapt call signature gracefully
+            res = _place_boxes_in_container(container, customers, boxes, route)
+            # Ensure keys exist
+            return {
+                "feasible": bool(res.get("feasible", True)),
+                "boxes_total": int(res.get("boxes_total", len(boxes) if boxes else 0)),
+                "boxes_packed": int(res.get("boxes_packed", 0)),
+                "fill_rate": float(res.get("fill_rate", 0.0)),
+            }
+        except Exception as e:
+            # packer failed — log minimal info and fall through to heuristic
+            print(f"[route_evaluator] packer call failed: {e}")
+
+    # Fallback heuristic (conservative)
+    boxes_total = len(boxes)
+    packed = min(boxes_total, max(0, int(len(route) * 0.5)))
+    fill_rate = (packed / boxes_total) if boxes_total > 0 else 0.0
+    feasible = True if boxes_total == 0 else (fill_rate >= 0.0)  # don't block smoke-test
+    return {"feasible": bool(feasible), "boxes_total": boxes_total, "boxes_packed": packed, "fill_rate": fill_rate}

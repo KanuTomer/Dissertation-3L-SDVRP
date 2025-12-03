@@ -1,0 +1,11 @@
+seed,out_dir,best_score,unpacked,infeasible,duration
+1000,experiments_output/vlr_ga_experiment_seed1000,21989.702469715055,0,0,41.41069030761719
+1001,experiments_output/vlr_ga_experiment_seed1001,23863.75606671717,0,0,40.270373582839966
+1002,experiments_output/vlr_ga_experiment_seed1002,25068.042455899296,0,0,41.695826053619385
+1003,experiments_output/vlr_ga_experiment_seed1003,24064.007456290372,0,0,40.885091066360474
+1004,experiments_output/vlr_ga_experiment_seed1004,21062.96254568337,0,0,40.50784206390381
+1005,experiments_output/vlr_ga_experiment_seed1005,24898.409084521252,0,0,40.61742401123047
+1006,experiments_output/vlr_ga_experiment_seed1006,23100.49596658759,0,0,41.537773847579956
+1007,experiments_output/vlr_ga_experiment_seed1007,23312.142481139686,0,0,42.91292643547058
+1008,experiments_output/vlr_ga_experiment_seed1008,25004.118125516397,0,0,42.421560764312744
+1009,experiments_output/vlr_ga_experiment_seed1009,25095.47780091608,0,0,42.22635626792908

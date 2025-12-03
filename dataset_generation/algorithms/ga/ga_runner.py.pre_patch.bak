@@ -1,0 +1,198 @@
+# dataset_generation/algorithms/ga/ga_runner.py
+import time
+import random
+from math import sqrt
+from pathlib import Path
+
+from .crossover import order_crossover
+from .mutation import swap_mutation
+from .selection import tournament_select
+
+# NOTE: your original code used route_evaluator.load_merged and evaluate_route.
+# If route_evaluator.py remains in legacy_scripts, either move it to dataset_generation/loaders/
+# and import as: from dataset_generation.loaders.route_evaluator import load_merged, evaluate_route
+# or keep it in sys.path. Below I import using the same names and expect them to be importable.
+try:
+    # prefer package loader if you moved route_evaluator into loaders
+    from dataset_generation.loaders.route_evaluator import load_merged, evaluate_route
+except Exception:
+    # fallback to legacy import (if route_evaluator.py is still top-level in project root)
+    from route_evaluator import load_merged, evaluate_route
+
+class GARunner:
+    def __init__(self, config: dict):
+        """
+        config keys used (defaults set where appropriate):
+         - pop_size
+         - gens
+         - cx_prob
+         - mut_prob
+         - max_boxes_per_route
+         - penalty_factor
+         - seed
+        """
+        self.config = config or {}
+        self.pop_size = int(self.config.get("pop_size", self.config.get("population_size", 80)))
+        self.gens = int(self.config.get("gens", self.config.get("num_generations", 200)))
+        self.cx_prob = float(self.config.get("cx_prob", self.config.get("crossover_prob", 0.9)))
+        self.mut_prob = float(self.config.get("mut_prob", self.config.get("mutation_prob", 0.2)))
+        self.max_boxes_per_route = int(self.config.get("max_boxes_per_route", self.config.get("maxboxes", 48)))
+        self.penalty_factor = float(self.config.get("penalty_factor", self.config.get("alpha", 1e8)))
+        self.seed = int(self.config.get("seed", 42))
+
+    # -------------------------
+    # Helper functions (ported)
+    # -------------------------
+    @staticmethod
+    def euclid(a, b):
+        return sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
+    @staticmethod
+    def route_distance(depot, customers_map, route):
+        if not route:
+            return 0.0
+        dist = 0.0
+        first = customers_map[route[0]]
+        dist += GARunner.euclid((depot[0], depot[1]), (first["x"], first["y"]))
+        for i in range(len(route) - 1):
+            c1 = customers_map[route[i]]
+            c2 = customers_map[route[i + 1]]
+            dist += GARunner.euclid((c1["x"], c1["y"]), (c2["x"], c2["y"]))
+        last = customers_map[route[-1]]
+        dist += GARunner.euclid((last["x"], last["y"]), (depot[0], depot[1]))
+        return dist
+
+    @staticmethod
+    def build_customer_boxcount_map(customers):
+        return {c["customer_id"]: len(c.get("assigned_boxes", [])) for c in customers}
+
+    @staticmethod
+    def decode_by_boxcount(order, cust_boxcount_map, max_boxes_per_route=48):
+        routes = []
+        cur = []
+        cur_boxes = 0
+        for cid in order:
+            b = cust_boxcount_map.get(cid, 0)
+            if cur and (cur_boxes + b > max_boxes_per_route):
+                routes.append(cur)
+                cur = [cid]
+                cur_boxes = b
+            else:
+                cur.append(cid)
+                cur_boxes += b
+        if cur:
+            routes.append(cur)
+        return routes
+
+    def evaluate_permutation(self, merged_json_path, perm):
+        """
+        Evaluate a permutation exactly as in legacy script:
+        - load merged instance with load_merged
+        - decode into routes by boxcount
+        - evaluate each route using evaluate_route (packing)
+        - return (score, details)
+        """
+        inst_name, container, customers, boxes = load_merged(merged_json_path)
+        cust_box_map = GARunner.build_customer_boxcount_map(customers)
+        routes = GARunner.decode_by_boxcount(perm, cust_box_map, max_boxes_per_route=self.max_boxes_per_route)
+        if customers:
+            depot = (customers[0]["x"], customers[0]["y"])
+        else:
+            depot = (0, 0)
+        customers_map = {c["customer_id"]: c for c in customers}
+        total_distance = 0.0
+        infeasible_count = 0
+        details = []
+        for r in routes:
+            dist = GARunner.route_distance(depot, customers_map, r)
+            pack = evaluate_route(merged_json_path, r)
+            feasible = pack["feasible"]
+            if not feasible:
+                infeasible_count += 1
+            total_distance += dist
+            details.append(
+                {
+                    "route": r,
+                    "distance": dist,
+                    "feasible": feasible,
+                    "boxes_total": pack.get("boxes_total"),
+                    "boxes_packed": pack.get("boxes_packed"),
+                    "fill_rate": pack.get("fill_rate"),
+                }
+            )
+        if infeasible_count == 0:
+            score = total_distance
+        else:
+            score = self.penalty_factor * infeasible_count + 1e-3 * total_distance
+        return score, {"total_distance": total_distance, "infeasible_count": infeasible_count, "routes": details}
+
+    # -------------------------
+    # Main GA runner
+    # -------------------------
+    def run(self, merged, pop_size=None, gens=None, cx_prob=None, mut_prob=None, seed=None):
+        """
+        merged: path to merged JSON (like legacy --merged) OR a dict if you changed evaluate_permutation to accept dicts
+        Additional args override config if provided.
+        Returns: dict with keys: best_order, best_score, best_info, history, duration
+        """
+        # use config values unless overridden
+        pop_size = int(pop_size if pop_size is not None else self.pop_size)
+        gens = int(gens if gens is not None else self.gens)
+        cx_prob = float(cx_prob if cx_prob is not None else self.cx_prob)
+        mut_prob = float(mut_prob if mut_prob is not None else self.mut_prob)
+        seed = int(seed if seed is not None else self.seed)
+
+        random.seed(seed)
+        inst_name, container, customers, boxes = load_merged(merged)
+        cust_ids = [c["customer_id"] for c in customers]
+        n = len(cust_ids)
+        # initialize population (keep extreme seeds)
+        pop = [random.sample(cust_ids, n) for _ in range(pop_size - 2)]
+        pop.append(cust_ids[:])
+        pop.append(list(reversed(cust_ids)))
+
+        fitness_cache = {}
+
+        def fitness(ind):
+            key = tuple(ind)
+            if key in fitness_cache:
+                return fitness_cache[key]
+            val = self.evaluate_permutation(merged, ind)
+            fitness_cache[key] = val
+            return val
+
+        best = None
+        best_s = float("inf")
+        history = []
+        start = time.time()
+
+        for g in range(gens):
+            scored = [fitness(ind)[0] for ind in pop]
+            for i, s in enumerate(scored):
+                if s < best_s:
+                    best_s = s
+                    best = pop[i][:]
+            ranked = sorted(zip(scored, pop), key=lambda x: x[0])
+            elite_n = max(4, int(0.05 * pop_size))
+            new_pop = [ranked[i][1][:] for i in range(elite_n)]
+            while len(new_pop) < pop_size:
+                p1 = tournament_select(pop, scored)
+                p2 = tournament_select(pop, scored)
+                if random.random() < cx_prob:
+                    child = order_crossover(p1, p2)
+                else:
+                    child = p1[:]
+                child = swap_mutation(child, mut_prob)
+                new_pop.append(child)
+            pop = new_pop
+            history.append(best_s)
+
+        duration = time.time() - start
+        best_val, best_info = fitness(best)
+        return {
+            "best_order": best,
+            "best_score": best_val,
+            "best_info": best_info,
+            "history": history,
+            "duration": duration,
+        }

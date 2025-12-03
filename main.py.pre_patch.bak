@@ -1,0 +1,22 @@
+﻿import argparse
+import json
+from pathlib import Path
+from dataset_generation.runners.run_experiments import run_from_config
+
+def load_json(path):
+    p = Path(path)
+    # use utf-8-sig to tolerate files that start with a BOM
+    with p.open("r", encoding="utf-8-sig") as f:
+        return json.load(f)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run dataset generation experiments")
+    parser.add_argument("--config", required=True, help="Path to experiment JSON config")
+    args = parser.parse_args()
+
+    cfg_path = Path(args.config)
+    if not cfg_path.exists():
+        raise SystemExit(f"Config file not found: {cfg_path.resolve()}")
+
+    config = load_json(cfg_path)
+    run_from_config(config)

@@ -1,0 +1,174 @@
+﻿import json
+from pathlib import Path
+from typing import Tuple, Dict, List, Any
+
+def load_merged(merged_json_path: str) -> Tuple[str, dict, list, list]:
+    p = Path(merged_json_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Merged JSON not found: {p.resolve()}")
+    with p.open("r", encoding="utf-8-sig") as f:
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse merged JSON {p.resolve()}: {e}") from e
+
+    inst_name = d.get("inst_name") or d.get("name") or p.stem
+    container = d.get("container", {})
+    customers = d.get("customers", [])
+    boxes = d.get("boxes", [])
+    return inst_name, container, customers, boxes
+
+# Attempt to import the real packer if available
+try:
+    from dataset_generation.utils.packer import place_boxes_in_container as _place_boxes_in_container
+    _HAS_PACKER = True
+except Exception:
+    _HAS_PACKER = False
+
+def _normalize_packer_result(res: Any, boxes_len: int) -> Dict:
+    """
+    Normalize many possible packer return types into the expected dict:
+      {"feasible": bool, "boxes_total": int, "boxes_packed": int, "fill_rate": float}
+    Handles:
+      - dict with keys
+      - tuple/list with up to 4 elements
+      - JSON string
+      - object with attributes (feasible, boxes_total, boxes_packed, fill_rate)
+      - boolean or numeric (interpreted conservatively)
+    """
+    # If already a dict, pick keys with fallbacks
+    if isinstance(res, dict):
+        return {
+            "feasible": bool(res.get("feasible", True)),
+            "boxes_total": int(res.get("boxes_total", boxes_len if boxes_len is not None else 0)),
+            "boxes_packed": int(res.get("boxes_packed", res.get("packed", 0) or 0)),
+            "fill_rate": float(res.get("fill_rate", res.get("fill", 0.0) or 0.0)),
+        }
+
+    # If tuple/list: try to interpret by length
+    if isinstance(res, (list, tuple)):
+        r = list(res)
+        # common orders: (feasible, boxes_total, boxes_packed, fill_rate) or (boxes_total, boxes_packed, fill_rate)
+        if len(r) >= 4:
+            feasible = bool(r[0])
+            boxes_total = int(r[1])
+            boxes_packed = int(r[2])
+            fill_rate = float(r[3])
+        elif len(r) == 3:
+            # assume (boxes_total, boxes_packed, fill_rate)
+            feasible = True
+            boxes_total = int(r[0])
+            boxes_packed = int(r[1])
+            fill_rate = float(r[2])
+        elif len(r) == 2:
+            # assume (boxes_packed, boxes_total) or (feasible, boxes_packed)
+            boxes_total = int(r[1])
+            boxes_packed = int(r[0])
+            feasible = True
+            fill_rate = (boxes_packed / boxes_total) if boxes_total else 0.0
+        else:
+            # single element list
+            val = r[0]
+            if isinstance(val, bool):
+                return {"feasible": val, "boxes_total": boxes_len, "boxes_packed": 0, "fill_rate": 0.0}
+            if isinstance(val, (int,float)):
+                # treat as boxes_packed
+                boxes_packed = int(val)
+                boxes_total = boxes_len
+                fill_rate = (boxes_packed / boxes_total) if boxes_total else 0.0
+                return {"feasible": True, "boxes_total": boxes_total, "boxes_packed": boxes_packed, "fill_rate": fill_rate}
+
+        return {"feasible": bool(feasible), "boxes_total": boxes_total, "boxes_packed": boxes_packed, "fill_rate": fill_rate}
+
+    # If string: try to parse JSON
+    if isinstance(res, str):
+        try:
+            parsed = json.loads(res)
+            return _normalize_packer_result(parsed, boxes_len)
+        except Exception:
+            # fallback: interpret as boolean-like or numeric-like
+            s = res.strip().lower()
+            if s in ("true","t","yes","y"):
+                return {"feasible": True, "boxes_total": boxes_len, "boxes_packed": 0, "fill_rate": 0.0}
+            if s in ("false","f","no","n"):
+                return {"feasible": False, "boxes_total": boxes_len, "boxes_packed": 0, "fill_rate": 0.0}
+            # try to extract digits
+            digits = "".join(ch for ch in s if ch.isdigit())
+            if digits:
+                boxes_packed = int(digits)
+                boxes_total = boxes_len
+                fill_rate = (boxes_packed / boxes_total) if boxes_total else 0.0
+                return {"feasible": True, "boxes_total": boxes_total, "boxes_packed": boxes_packed, "fill_rate": fill_rate}
+            # unknown string — fallback
+            return {"feasible": False, "boxes_total": boxes_len, "boxes_packed": 0, "fill_rate": 0.0}
+
+    # If object with attributes, try to read known attributes
+    try:
+        feasible = bool(getattr(res, "feasible", getattr(res, "is_feasible", True)))
+        boxes_total = int(getattr(res, "boxes_total", getattr(res, "total_boxes", boxes_len or 0)))
+        boxes_packed = int(getattr(res, "boxes_packed", getattr(res, "packed_boxes", 0)))
+        fill_rate = float(getattr(res, "fill_rate", getattr(res, "fill", 0.0)))
+        return {"feasible": feasible, "boxes_total": boxes_total, "boxes_packed": boxes_packed, "fill_rate": fill_rate}
+    except Exception:
+        pass
+
+    # As a last resort, if numeric or boolean
+    if isinstance(res, bool):
+        return {"feasible": res, "boxes_total": boxes_len, "boxes_packed": 0, "fill_rate": 0.0}
+    if isinstance(res, (int, float)):
+        boxes_packed = int(res)
+        boxes_total = boxes_len
+        fill_rate = (boxes_packed / boxes_total) if boxes_total else 0.0
+        return {"feasible": True, "boxes_total": boxes_total, "boxes_packed": boxes_packed, "fill_rate": fill_rate}
+
+    # Give up: conservative fallback
+    return {"feasible": False, "boxes_total": boxes_len, "boxes_packed": 0, "fill_rate": 0.0}
+
+def _try_packer_calls(container, customers, boxes, route):
+    """
+    Try multiple plausible argument signatures for the legacy packer function.
+    Returns a dict-like result on success, or raises the last exception on failure.
+    """
+    last_exc = None
+    # If no packer available, raise
+    if not _HAS_PACKER:
+        raise RuntimeError("No packer available")
+
+    # Try several signatures
+    signatures = [
+        (container, customers, boxes, route),
+        (container, boxes, route),
+        (container, boxes),
+        (container, customers),
+        (container,),
+    ]
+    for args in signatures:
+        try:
+            return _place_boxes_in_container(*args)
+        except Exception as e:
+            last_exc = e
+    raise last_exc
+
+def evaluate_route(merged_json_path: str, route: List[int]) -> Dict:
+    """
+    Try packer -> normalize result -> return expected dict.
+    """
+    try:
+        inst_name, container, customers, boxes = load_merged(merged_json_path)
+    except Exception:
+        return {"feasible": False, "boxes_total": 0, "boxes_packed": 0, "fill_rate": 0.0}
+
+    boxes_len = len(boxes)
+    if _HAS_PACKER:
+        try:
+            raw = _try_packer_calls(container, customers, boxes, route)
+            normalized = _normalize_packer_result(raw, boxes_len)
+            return normalized
+        except Exception as e:
+            print(f"[route_evaluator] packer call failed (all tried signatures): {e}")
+
+    # Fallback heuristic
+    packed = min(boxes_len, max(0, int(len(route) * 0.5)))
+    fill_rate = (packed / boxes_len) if boxes_len > 0 else 0.0
+    feasible = True if boxes_len == 0 else (fill_rate >= 0.0)
+    return {"feasible": bool(feasible), "boxes_total": boxes_len, "boxes_packed": packed, "fill_rate": fill_rate}

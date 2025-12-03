@@ -1,0 +1,17 @@
+﻿{
+  "inst_name": "smoke_with_boxes",
+  "container": { "L": 100, "W": 100, "H": 100 },
+  "customers": [
+    { "customer_id": 1, "x": 0, "y": 0, "assigned_boxes": [101,102] },
+    { "customer_id": 2, "x": 10, "y": 0, "assigned_boxes": [103,104,105] },
+    { "customer_id": 3, "x": 0, "y": 10, "assigned_boxes": [106] }
+  ],
+  "boxes": [
+    { "box_id": 101, "length": 10, "width": 10, "height": 10 },
+    { "box_id": 102, "length": 20, "width": 10, "height": 5 },
+    { "box_id": 103, "length": 15, "width": 8, "height": 6 },
+    { "box_id": 104, "length": 12, "width": 12, "height": 6 },
+    { "box_id": 105, "length": 5,  "width": 5,  "height": 5 },
+    { "box_id": 106, "length": 25, "width": 10, "height": 10 }
+  ]
+}

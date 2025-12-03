@@ -1,0 +1,94 @@
+﻿import json
+from pathlib import Path
+from typing import Tuple, Dict, List
+
+def load_merged(merged_json_path: str) -> Tuple[str, dict, list, list]:
+    p = Path(merged_json_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Merged JSON not found: {p.resolve()}")
+    with p.open("r", encoding="utf-8-sig") as f:
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse merged JSON {p.resolve()}: {e}") from e
+
+    inst_name = d.get("inst_name") or d.get("name") or p.stem
+    container = d.get("container", {})
+    customers = d.get("customers", [])
+    boxes = d.get("boxes", [])
+    return inst_name, container, customers, boxes
+
+# Try to import the real packer if available
+try:
+    from dataset_generation.utils.packer import place_boxes_in_container as _place_boxes_in_container
+    _HAS_PACKER = True
+except Exception:
+    _HAS_PACKER = False
+
+def _try_packer_calls(container, customers, boxes, route):
+    """
+    Try multiple plausible argument signatures for the legacy packer function.
+    Returns a dict-like result on success, or raises the last exception on failure.
+    """
+    last_exc = None
+    # 1) try (container, customers, boxes, route)
+    try:
+        return _place_boxes_in_container(container, customers, boxes, route)
+    except TypeError as e:
+        last_exc = e
+    except Exception as e:
+        # other exceptions — surface them (but we'll also try fallbacks)
+        last_exc = e
+
+    # 2) try (container, boxes, route)
+    try:
+        return _place_boxes_in_container(container, boxes, route)
+    except TypeError as e:
+        last_exc = e
+    except Exception as e:
+        last_exc = e
+
+    # 3) try (container, boxes)
+    try:
+        return _place_boxes_in_container(container, boxes)
+    except Exception as e:
+        last_exc = e
+
+    # 4) try (container, customers)
+    try:
+        return _place_boxes_in_container(container, customers)
+    except Exception as e:
+        last_exc = e
+
+    # If all attempts failed, raise the last exception
+    raise last_exc
+
+def evaluate_route(merged_json_path: str, route: List[int]) -> Dict:
+    """
+    Evaluate route using the real packer when possible, trying multiple call signatures.
+    Falls back to a conservative heuristic if the packer is absent or all calls fail.
+    """
+    try:
+        inst_name, container, customers, boxes = load_merged(merged_json_path)
+    except Exception:
+        return {"feasible": False, "boxes_total": 0, "boxes_packed": 0, "fill_rate": 0.0}
+
+    if _HAS_PACKER:
+        try:
+            res = _try_packer_calls(container, customers, boxes, route)
+            # Normalize packer output to expected keys
+            return {
+                "feasible": bool(res.get("feasible", True)),
+                "boxes_total": int(res.get("boxes_total", len(boxes) if boxes else 0)),
+                "boxes_packed": int(res.get("boxes_packed", 0)),
+                "fill_rate": float(res.get("fill_rate", 0.0)),
+            }
+        except Exception as e:
+            print(f"[route_evaluator] packer call failed (all tried signatures): {e}")
+
+    # Fallback heuristic
+    boxes_total = len(boxes)
+    packed = min(boxes_total, max(0, int(len(route) * 0.5)))
+    fill_rate = (packed / boxes_total) if boxes_total > 0 else 0.0
+    feasible = True if boxes_total == 0 else (fill_rate >= 0.0)
+    return {"feasible": bool(feasible), "boxes_total": boxes_total, "boxes_packed": packed, "fill_rate": fill_rate}

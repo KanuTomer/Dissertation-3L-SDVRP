@@ -1,0 +1,46 @@
+﻿from pathlib import Path
+import json
+
+from dataset_generation.loaders.cvrp_loader import load_cvrp_and_boxes
+from dataset_generation.algorithms.ga.ga_runner import GARunner
+from dataset_generation.isolators.iterative_isolate import IterativeIsolator
+from dataset_generation.inspectors.inspect_route import InspectRoute
+
+def run_from_config(config: dict):
+    dataset_path = config.get("dataset_path")
+    if not dataset_path:
+        raise ValueError("config must contain 'dataset_path'")
+
+    # Validate dataset path
+    p = Path(dataset_path)
+    if not p.exists():
+        p_rel = Path.cwd() / dataset_path
+        if p_rel.exists():
+            dataset_path = str(p_rel)
+        else:
+            raise FileNotFoundError(f"Dataset file not found: {dataset_path} (also tried {p_rel})")
+
+    # Run algorithm
+    alg = config.get("algorithm", "ga")
+    if alg == "ga":
+        runner = GARunner(config)
+        result = runner.run(dataset_path)
+    else:
+        raise NotImplementedError("Only GA supported in skeleton")
+
+    # Optional isolator
+    if config.get("use_isolator"):
+        isolator = IterativeIsolator(config)
+        result = isolator.isolate(result)
+
+    # Inspect result
+    inspector = InspectRoute()
+    report = inspector.inspect(result)
+
+    # Save outputs
+    out_dir = Path(config.get("output_dir", "experiments_output"))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "result.json").write_text(json.dumps(result, indent=2))
+    (out_dir / "report.json").write_text(json.dumps(report, indent=2))
+
+    return result

@@ -1,0 +1,12 @@
+﻿{
+    "name":  "vlr_ga_experiment",
+    "dataset_path":  "datasets/my_route_and_boxes.json",
+    "algorithm":  "ga",
+    "population_size":  100,
+    "num_generations":  500,
+    "crossover":  "order_based",
+    "mutation":  "vlr",
+    "selection":  "tournament",
+    "use_isolator":  false,
+    "output_dir":  "experiments_output/vlr_ga_experiment"
+}
