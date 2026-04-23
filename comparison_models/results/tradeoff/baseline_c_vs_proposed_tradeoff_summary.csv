@@ -1,0 +1,5 @@
+Dataset Size,Baseline C Avg Distance,Proposed Avg Distance,Distance Gap vs Baseline C (%),Minimum Fill Improvement (%),Route Fill Std Improvement (%),Route Count Reduction (%),Runtime Ratio (Proposed/Baseline C)
+100,24244.23,24256.36,0.05,36.84,52.01,2.5,1.843
+250,81777.25,83432.3,2.02,163.62,37.04,3.21,1.863
+500,202984.8,208235.12,2.59,945.98,18.39,0.81,2.177
+750,334555.08,336568.19,0.6,89.67,18.3,0.9,1.707

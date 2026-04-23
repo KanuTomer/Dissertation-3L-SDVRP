@@ -1,0 +1,5 @@
+Method,Best Score,Worst Score,Best Runtime,Worst Runtime
+Baseline A,135365.75,144017.49,24.15,28.56
+Baseline B,132733.11,144855.72,99.1,124.86
+Baseline C,152087.98,155162.75,90.28,110.44
+Proposed Model,152481.23,162784.44,186.68,280.43

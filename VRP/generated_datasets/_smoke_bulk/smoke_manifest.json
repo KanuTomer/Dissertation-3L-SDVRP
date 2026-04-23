@@ -1,0 +1,139 @@
+{
+  "generated_at": "2026-04-20T05:22:07",
+  "xml_dir": "C:\\Kanu\\Kanu(D)\\Dissertation\\XML",
+  "output_dir": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk",
+  "groups": [
+    "1111",
+    "1142"
+  ],
+  "target_sizes": [
+    50,
+    100
+  ],
+  "variants_per_size": 1,
+  "start_at": 1,
+  "seed": 42,
+  "min_boxes_per_customer": 1,
+  "max_boxes_per_customer": 4,
+  "overwrite": false,
+  "validate": true,
+  "datasets": [
+    {
+      "dataset_name": "XML50_1111_01",
+      "target_size": 50,
+      "group": "1111",
+      "start": 1,
+      "variant_index": 1,
+      "output_path": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML50_1111_01_merged_with_boxes_norm.json",
+      "source_files": [
+        "XML100_1111_01.vrp"
+      ],
+      "source_usage": [
+        {
+          "source_file": "XML100_1111_01.vrp",
+          "source_group": "1111",
+          "source_index": 1,
+          "customers_used": 50,
+          "source_dataset_seed": 911
+        }
+      ],
+      "validation_summary": {
+        "dataset": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML50_1111_01_merged_with_boxes_norm.json",
+        "customer_count": 51,
+        "real_customer_count": 50,
+        "box_count": 126,
+        "depot_box_count": 0,
+        "route_evaluator_compatible": true,
+        "valid": true
+      }
+    },
+    {
+      "dataset_name": "XML100_1111_01",
+      "target_size": 100,
+      "group": "1111",
+      "start": 1,
+      "variant_index": 1,
+      "output_path": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML100_1111_01_merged_with_boxes_norm.json",
+      "source_files": [
+        "XML100_1111_01.vrp"
+      ],
+      "source_usage": [
+        {
+          "source_file": "XML100_1111_01.vrp",
+          "source_group": "1111",
+          "source_index": 1,
+          "customers_used": 100,
+          "source_dataset_seed": 911
+        }
+      ],
+      "validation_summary": {
+        "dataset": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML100_1111_01_merged_with_boxes_norm.json",
+        "customer_count": 101,
+        "real_customer_count": 100,
+        "box_count": 252,
+        "depot_box_count": 0,
+        "route_evaluator_compatible": true,
+        "valid": true
+      }
+    },
+    {
+      "dataset_name": "XML50_1142_01",
+      "target_size": 50,
+      "group": "1142",
+      "start": 1,
+      "variant_index": 1,
+      "output_path": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML50_1142_01_merged_with_boxes_norm.json",
+      "source_files": [
+        "XML100_1142_01.vrp"
+      ],
+      "source_usage": [
+        {
+          "source_file": "XML100_1142_01.vrp",
+          "source_group": "1142",
+          "source_index": 1,
+          "customers_used": 50,
+          "source_dataset_seed": 915
+        }
+      ],
+      "validation_summary": {
+        "dataset": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML50_1142_01_merged_with_boxes_norm.json",
+        "customer_count": 51,
+        "real_customer_count": 50,
+        "box_count": 120,
+        "depot_box_count": 0,
+        "route_evaluator_compatible": true,
+        "valid": true
+      }
+    },
+    {
+      "dataset_name": "XML100_1142_01",
+      "target_size": 100,
+      "group": "1142",
+      "start": 1,
+      "variant_index": 1,
+      "output_path": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML100_1142_01_merged_with_boxes_norm.json",
+      "source_files": [
+        "XML100_1142_01.vrp"
+      ],
+      "source_usage": [
+        {
+          "source_file": "XML100_1142_01.vrp",
+          "source_group": "1142",
+          "source_index": 1,
+          "customers_used": 100,
+          "source_dataset_seed": 915
+        }
+      ],
+      "validation_summary": {
+        "dataset": "C:\\Kanu\\Kanu(D)\\Dissertation\\Dissertation-3L-SDVRP\\VRP\\generated_datasets\\_smoke_bulk\\XML100_1142_01_merged_with_boxes_norm.json",
+        "customer_count": 101,
+        "real_customer_count": 100,
+        "box_count": 240,
+        "depot_box_count": 0,
+        "route_evaluator_compatible": true,
+        "valid": true
+      }
+    }
+  ],
+  "skipped_existing": []
+}

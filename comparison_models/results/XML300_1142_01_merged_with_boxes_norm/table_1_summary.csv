@@ -1,0 +1,5 @@
+Method,Avg Score,Avg Distance,Avg Runtime,Feasibility Rate,Std Dev
+Baseline A,94405.98,94405.98,17.22,0.0,1848.75
+Baseline B,96591.56,96491.56,91.55,0.909,3621.7
+Baseline C,102933.03,102933.03,66.95,1.0,2415.07
+Proposed Model,104023.13,103760.98,118.4,1.0,2743.38

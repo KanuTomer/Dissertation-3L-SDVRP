@@ -175,4 +175,4 @@ def merge_instance(cvrp, box_files, outdir, boxes_per_customer=3, seed=42):
 
     }, open(merged_path, "w"), indent=2)
 
-    print(f"Saved merged instance → {merged_path}")
+    print(f"Saved merged instance to {merged_path}")

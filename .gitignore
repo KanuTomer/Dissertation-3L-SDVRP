@@ -1,22 +1,47 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Virtual environment
+# Virtual environments
+venv/
 .venv/
+.env/
 env/
 
-# Output folders
-experiments_output/
-results/
-output/
-route_ga_out/
-route_ga_vlr_out/
-route_ga_vlr_byboxes_out/
+# Generated experiment outputs
+comparison_models/outputs/
+comparison_models/outputs_ablation/
+comparison_models/graphs/
+comparison_models/pipeline_logs/
+comparison_models/final_plots/
+comparison_models/plots/
 
-# Logs
+# Generated result tables
+comparison_models/results/*.csv
+comparison_models/combined_results.csv
+comparison_models/model_comparison_summary.csv
+comparison_models/final_comparison_table.csv
+
+# Generated datasets
+VRP/generated_datasets/conference_batch/
+
+# Archived large development outputs
+legacy_scripts/archived_framework/experiments_output/
+legacy_scripts/archived_framework/experiments_output_backup_*/
+legacy_scripts/archived_framework/results/
+legacy_scripts/archived_framework/input_dataset/*.json
+legacy_scripts/archived_framework/input_dataset/*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Misc logs and temp files
 *.log
-
-# Large datasets
-input_dataset/*.json
-input_dataset/*.csv
+*.bak

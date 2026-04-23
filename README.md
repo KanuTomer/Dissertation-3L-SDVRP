@@ -1,183 +1,131 @@
-# 🚚 3D Box Packing + GA Route Optimization (Dissertation Project)
+# 3L-SDVRP Comparison Framework with Packing-Aware Genetic Algorithms
 
-This repository contains the full implementation of my dissertation work on optimizing vehicle loading and routing using:
+## Overview
+This repository contains a dissertation comparison framework for the Three-Dimensional Loading Split Delivery Vehicle Routing Problem (3L-SDVRP). The project studies how route construction changes when vehicle routing is evaluated together with 3D loading feasibility inside a fixed container.
 
-- Genetic Algorithms (GA) for route ordering  
-- 3D Box/Bin Packing (3D-BPP)  
-- Iterative Isolation / VLR Repair methods  
-- Automated replicate experiments  
-- Timestamped experiment pipelines  
-- Full reproducibility of results
+The framework compares several genetic-algorithm-based models on synthetic benchmark datasets derived from XML CVRP instances. The implementation is inspired by PEAC-HNF-style packing-aware routing ideas, but is intentionally simplified into a feasibility-first comparison pipeline that is easier to reproduce and analyze in a dissertation or workshop-paper setting.
 
-The system reads real-world merged & normalized datasets, runs multiple GA replicates, applies spatial repair, summarizes results, and generates publication-ready figures.
+## Project Structure
+```text
+Dissertation-3L-SDVRP/
+│
+├── comparison_models/
+├── VRP/
+├── legacy_scripts/
+├── README.md
+├── requirements.txt
+└── .gitignore
+```
 
----
+### `comparison_models/`
+Contains the active comparison framework:
+- baseline implementations
+- proposed model implementation
+- shared GA utilities
+- experiment runners
+- reporting scripts
+- graph-generation scripts
 
-# 📁 Project Structure
+### `VRP/`
+Contains the active dataset-generation and validation pipeline:
+- XML parsing
+- synthetic dataset generation
+- box generation
+- dataset validation
 
-    Dataset Generation/
-    │
-    ├── input_dataset/
-    │     └── XML100_1111_01_merged_with_boxes_norm.json
-    │
-    ├── experiments/
-    │     └── run_replicates.ps1
-    │
-    ├── scripts/
-    │     ├── summarize_replicates_fixed.py
-    │     ├── extract_isolations.py
-    │     └── make_figures_fixed.py
-    │
-    ├── dataset_generation/
-    ├── results/
-    │     └── runs/
-    │
-    └── run_all_experiments.ps1
+### `legacy_scripts/`
+Contains archived development code, historical experiment scripts, and older utilities that are not part of the current comparison pipeline. This folder is kept for traceability and reproducibility of the development process, but it is not required for the main workflow.
 
----
+### Generated Outputs
+Large generated outputs such as experiment results, graphs, ablation outputs, and conference-batch datasets are excluded from Git tracking through `.gitignore` to keep the repository lightweight.
 
-# 🎯 Project Purpose
+## Models
 
-This project evaluates a hybrid optimisation pipeline combining:
+### `baseline_a`
+Distance-only genetic algorithm.
+- ignores packing feasibility
+- optimizes route distance only
 
-- GA-driven route/order optimisation  
-- Realistic 3D box/bulk packing  
-- Automatic infeasibility detection & repair  
-- Multi-replicate GA runs  
-- Automated summary & figure generation  
+### `baseline_b`
+Weak packing-aware baseline.
+- checks 3D packing feasibility
+- applies a weak infeasibility penalty
 
----
+### `baseline_c`
+Strong feasibility-first baseline.
+- checks packing feasibility
+- applies a strong infeasibility penalty
+- serves as the main packing-aware baseline for comparison
 
-# ⚙️ Setup Instructions
+### `proposed_model`
+Packing-aware GA with structural route improvements.
+- adaptive decoding
+- local route repair
+- route-structure-aware scoring
+- dataset-size-aware policies
 
-## 1️⃣ Clone the repository
-    git clone <your-repo-url>
-    cd "Dataset Generation"
+## Key Features of the Proposed Model
+- adaptive decoding with split-candidate evaluation
+- tiny-route repair
+- customer relocation repair
+- route-balance mutation
+- size-aware scoring and repair policies for small, medium, large, and very-large datasets
 
-## 2️⃣ Create and activate a virtual environment
-    python -m venv .venv
-    .\.venv\Scripts\Activate.ps1
+## How to Run
 
-## 3️⃣ Install dependencies
-If using requirements:
+### 1. Generate datasets
+```powershell
+python VRP/generate_dataset_batch.py --all-sizes --groups 1111 1142
+```
 
-    pip install -r requirements.txt
+### 2. Run experiments
+```powershell
+python comparison_models/compare_all_models.py --dataset XML100 --model proposed_model
+```
 
-Otherwise:
+### 3. Full pipeline
+```powershell
+powershell comparison_models/run_full_pipeline.ps1
+```
 
-    pip install numpy pandas matplotlib
+### 4. Ablation study
+```powershell
+python comparison_models/run_ablation_study.py
+```
 
-## 4️⃣ Add your dataset file
-Place your dataset here:
+## Results Summary
+The final comparison framework shows that the proposed model improves route structure quality more consistently than it improves pure routing distance.
 
-    input_dataset/XML100_1111_01_merged_with_boxes_norm.json
+In the current tuned configuration, the proposed model typically improves:
+- minimum route fill
+- route fill balance
+- route composition quality
+- packing-aware structural stability
 
----
+Distance performance is:
+- competitive on smaller datasets
+- competitive again on larger datasets after size-aware tuning
+- somewhat higher on part of the medium-size band
 
-# 🚀 Running the Project
+The strongest representative sizes are:
+- XML50
+- XML100
+- XML250
+- XML500
+- XML750
 
-## ✅ Option A: Full Automated Pipeline (Recommended)
+The weaker band is:
+- XML150 to XML450
 
-Runs the full workflow and saves results in timestamped folders:
+This makes the proposed model strongest as a packing-aware structural improvement approach rather than a pure distance-dominance method.
 
-    .\run_all_experiments.ps1
+## Key Contributions
+- unified comparison framework for routing-only and packing-aware GA models
+- proposed packing-aware GA enhancements with adaptive decoding and repair
+- size-aware optimization policy for different dataset scales
+- extensive automated experiment, reporting, and graph-generation pipeline
 
-This script automatically:
-- Loads dataset  
-- Runs GA replicates  
-- Saves everything under `results/runs/<timestamp>/`  
-- Generates: summary CSV, isolation CSV, figures, logs  
-
----
-
-## ✅ Option B: Run GA Replicates Manually
-
-    .\experiments\run_replicates.ps1 `
-        -normfile ".\input_dataset\XML100_1111_01_merged_with_boxes_norm.json" `
-        -replicates 20 `
-        -seed_start 2000
-
-Outputs go to:
-
-    experiments_output/
-
----
-
-# 📊 Output Files Explained
-
-### ✔ replicates_summary.csv  
-Per-seed GA performance (best score, duration, unpacked, infeasible, etc.)
-
-### ✔ figures/  
-Automatically generated plots:  
-- best_score vs seed  
-- duration vs seed  
-- unpacked distribution  
-- infeasible histogram  
-
-### ✔ isolation_summary.csv  
-Shows spatial-repair / isolation behaviour.
-
-### ✔ summary_stats.txt  
-Contains timestamp, params, and output paths.
-
-### ✔ experiments_output/  
-Raw per-seed JSON outputs.
-
----
-
-# 📌 Recommended .gitignore
-
-    # Python
-    __pycache__/
-    *.pyc
-
-    # Virtual environment
-    .venv/
-
-    # Output folders
-    experiments_output/
-    results/
-    output/
-
-    # Logs
-    *.log
-
-    # Large datasets
-    input_dataset/*.json
-    input_dataset/*.csv
-
-    # Backup files
-    *.bak
-
----
-
-# 🧠 Key Concepts Implemented
-
-### ✔ Genetic Algorithm (GA)
-Optimises route/stop ordering; multiple seeds measure stability.
-
-### ✔ 3D Packing + Repair
-Uses rotation rules, feasibility checks, and VLR/Isolation repair.
-
-### ✔ Replicate-Based Robustness
-Shows variability, convergence stability, and runtime consistency.
-
-### ✔ Automatic Analysis
-Generates figures and summaries for dissertation use.
-
----
-
-# 🧪 Reproducibility
-
-To reproduce **all** experiments:
-
-    .\run_all_experiments.ps1
-
-Outputs will appear under:
-
-    results/runs/<timestamp>/
-
----
-
-
+## Notes
+- generated outputs and graphs are excluded from Git tracking to keep the repository lightweight
+- `legacy_scripts/` contains archived development code and older experimental utilities
+- the active comparison pipeline is fully reproducible using the commands above

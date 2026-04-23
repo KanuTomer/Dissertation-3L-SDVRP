@@ -1,0 +1,5 @@
+USE_PACKING = False
+PENALTY_ALPHA = 0
+USE_ENHANCED_MUTATION = False
+MODEL_NAME = "baseline_a"
+MUTATION_TYPE = "swap"

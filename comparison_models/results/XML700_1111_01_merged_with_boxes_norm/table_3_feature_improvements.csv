@@ -1,0 +1,4 @@
+Feature Added,Improvement Observed
+Packing Validation,"Feasibility rate 0.0 -> 0.869, avg score increased by 0.30%, runtime increased by 173.38%"
+Strong Penalty,"Feasibility rate improved by 15.04%, score stability increased by 16.48%, avg unpacked boxes improved by 100.00%"
+Adaptive Decoding + Route Repair,"Avg distance increased by 0.73%, Minimum fill rate improved by 238.60%, Route fill std improved by 16.31%, Tiny route count 0.0 -> 0.9, Overflow route count 0.0 -> 0.0, Merged route count 0.0 -> 0.0"

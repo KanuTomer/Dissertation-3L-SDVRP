@@ -1,0 +1,25 @@
+Dataset Size,Variant,Datasets Aggregated,Avg Distance,Min Route Fill,Avg Route Fill Std,Avg Route Count,Avg Overflow Route Count,Avg Runtime (s)
+100,Full Proposed,2,24256.36,0.056,0.009,3.9,0.85,85.37
+100,No Adaptive Decoding,2,22351.08,0.048,0.018,4.0,0.0,43.51
+100,No Final-Best Refinement,2,24256.36,0.056,0.009,3.9,0.85,84.33
+100,No Relocation Repair,2,24060.4,0.053,0.011,3.75,1.1,58.08
+100,No Route-Balance Mutation,2,23704.85,0.063,0.011,3.85,0.55,92.61
+100,No Tiny-Route Repair,2,24256.36,0.056,0.009,3.9,0.85,92.55
+250,Full Proposed,2,83432.3,0.063,0.012,9.05,0.0,105.13
+250,No Adaptive Decoding,2,81860.48,0.032,0.015,9.2,0.0,72.25
+250,No Final-Best Refinement,2,83432.3,0.063,0.012,9.05,0.0,107.49
+250,No Relocation Repair,2,83439.72,0.057,0.012,9.05,0.0,94.44
+250,No Route-Balance Mutation,2,84356.76,0.06,0.011,9.1,0.0,123.13
+250,No Tiny-Route Repair,2,83432.3,0.063,0.012,9.05,0.0,124.35
+500,Full Proposed,2,208235.12,0.051,0.014,18.45,0.05,177.26
+500,No Adaptive Decoding,2,203763.06,0.011,0.016,18.55,0.0,91.17
+500,No Final-Best Refinement,2,208235.12,0.051,0.014,18.45,0.05,176.27
+500,No Relocation Repair,2,208050.46,0.041,0.015,18.55,0.0,137.47
+500,No Route-Balance Mutation,2,205588.28,0.047,0.014,18.5,0.15,177.42
+500,No Tiny-Route Repair,2,207817.03,0.047,0.014,18.5,0.0,177.91
+750,Full Proposed,2,336568.19,0.035,0.014,27.65,0.3,231.05
+750,No Adaptive Decoding,2,335554.04,0.026,0.015,27.9,0.0,139.83
+750,No Final-Best Refinement,2,336568.19,0.035,0.014,27.65,0.3,230.52
+750,No Relocation Repair,2,337634.12,0.026,0.014,27.7,0.1,192.51
+750,No Route-Balance Mutation,2,335865.58,0.034,0.014,27.75,0.0,236.36
+750,No Tiny-Route Repair,2,335537.34,0.033,0.015,27.9,0.0,238.64
