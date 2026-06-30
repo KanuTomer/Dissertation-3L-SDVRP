@@ -52,12 +52,20 @@ MODEL_COLORS = {
     "Runtime vs Full": "#B279A2",
 }
 
+MODEL_MARKERS = {
+    "Baseline A": "o",
+    "Baseline B": "s",
+    "Baseline C": "^",
+    "Proposed Model": "D",
+}
+
 PLOT_DPI = 170
 AXIS_FONT_SIZE = 13
 TITLE_FONT_SIZE = 16
 SUBTITLE_FONT_SIZE = 10
 LEGEND_FONT_SIZE = 10
 MARKER_SIZE = 28
+PAPER_GRAPHS_DIRNAME = "paper"
 
 
 def _filter_rows(rows: list[dict], datasets: list[str] | None, models: list[str] | None) -> list[dict]:
@@ -1094,6 +1102,86 @@ def _plot_route_composition(rows: list[dict], output_dir: Path) -> None:
         plt.close(fig)
 
 
+def _plot_paper_tradeoff_distance_vs_fill_std(summary_rows: list[dict], output_dir: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    aggregated = aggregate_summary_by_size(
+        summary_rows,
+        model_names=["baseline_b", "baseline_c", "proposed_model"],
+    )
+    if not aggregated:
+        return
+
+    plt.figure(figsize=(10.8, 6.8))
+    plotted = False
+    label_offsets = {
+        ("proposed_model", 50): (8, 10),
+        ("proposed_model", 250): (10, 8),
+        ("proposed_model", 500): (10, 8),
+        ("proposed_model", 750): (10, 8),
+    }
+    for model_name in ["baseline_b", "baseline_c", "proposed_model"]:
+        label = MODEL_LABELS.get(model_name, model_name)
+        model_rows = [
+            row for row in aggregated
+            if row.get("model") == model_name
+            and row.get("avg_distance") is not None
+            and row.get("avg_route_fill_std") is not None
+        ]
+        if not model_rows:
+            continue
+        model_rows = sorted(model_rows, key=lambda row: int(row["num_customers"]))
+        plotted = True
+        xs = [float(row["avg_distance"]) for row in model_rows]
+        ys = [float(row["avg_route_fill_std"]) for row in model_rows]
+        sizes = [int(row["num_customers"]) for row in model_rows]
+
+        plt.scatter(
+            xs,
+            ys,
+            label=label,
+            color=_series_color(label),
+            marker=MODEL_MARKERS.get(label, "o"),
+            s=92 if model_name == "proposed_model" else 56,
+            alpha=0.92 if model_name == "proposed_model" else 0.7,
+            edgecolors="white",
+            linewidths=1.0,
+            zorder=3,
+        )
+        for x_value, y_value, size in zip(xs, ys, sizes):
+            if model_name == "proposed_model" and size in {50, 250, 500, 750}:
+                dx, dy = label_offsets.get((model_name, size), (8, 8))
+                plt.annotate(
+                    f"XML{size}",
+                    (x_value, y_value),
+                    textcoords="offset points",
+                    xytext=(dx, dy),
+                    fontsize=8.5,
+                    color="#333333",
+                    bbox=dict(boxstyle="round,pad=0.18", facecolor="white", edgecolor="none", alpha=0.85),
+                )
+
+    if not plotted:
+        plt.close()
+        return
+
+    _style_axes(
+        "",
+        xlabel="Total Distance",
+        ylabel="Route Fill Std (Lower is Better)",
+        subtitle=None,
+    )
+    plt.grid(True, linestyle="--", linewidth=0.5, alpha=0.10)
+
+    x_values = [float(row["avg_distance"]) for row in aggregated if row.get("avg_distance") is not None]
+    y_values = [float(row["avg_route_fill_std"]) for row in aggregated if row.get("avg_route_fill_std") is not None]
+    plt.ylim(0.005, 0.028)
+    plt.legend(frameon=False, fontsize=LEGEND_FONT_SIZE, loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0.0)
+    plt.tight_layout()
+    plt.savefig(output_dir / "tradeoff_distance_vs_fill_std.png", dpi=PLOT_DPI, bbox_inches="tight")
+    plt.close()
+
+
 def _plot_paired_seed_views(rows: list[dict], output_dir: Path) -> None:
     target_prefixes = ("XML100_", "XML250_", "XML500_", "XML750_")
     datasets = sorted({
@@ -1294,9 +1382,11 @@ def main() -> int:
     ablation_dir = GRAPHS_ROOT / "ablation"
     tradeoff_dir = GRAPHS_ROOT / "tradeoff"
     route_composition_dir = GRAPHS_ROOT / "route_composition"
+    paper_dir = GRAPHS_ROOT / PAPER_GRAPHS_DIRNAME
     ablation_dir.mkdir(parents=True, exist_ok=True)
     tradeoff_dir.mkdir(parents=True, exist_ok=True)
     route_composition_dir.mkdir(parents=True, exist_ok=True)
+    paper_dir.mkdir(parents=True, exist_ok=True)
 
     _plot_global_model_bars(filtered_rows, GRAPHS_ROOT)
     _plot_feasible_infeasible(filtered_rows, GRAPHS_ROOT)
@@ -1313,6 +1403,7 @@ def main() -> int:
     _plot_tradeoff_summary(summary_rows, tradeoff_dir)
     _plot_ablation_graphs(ablation_filtered_rows, ablation_dir)
     _plot_route_composition(filtered_rows, route_composition_dir)
+    _plot_paper_tradeoff_distance_vs_fill_std(summary_rows, paper_dir)
 
     print(f"Saved comparison graphs to {GRAPHS_ROOT}")
     return 0

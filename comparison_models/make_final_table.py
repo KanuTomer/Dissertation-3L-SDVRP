@@ -33,6 +33,24 @@ MODEL_LABELS = {
     **ABLATION_LABELS,
 }
 
+PAPER_RESULTS_DIR = RESULTS_ROOT / "paper"
+PAPER_LATEX_DIR = PAPER_RESULTS_DIR / "latex"
+PAPER_TABLE_SIZES = [50, 250, 500, 750]
+PAPER_MODEL_ORDER = ["baseline_a", "baseline_b", "baseline_c", "proposed_model"]
+PAPER_ABLATION_ORDER = [
+    "proposed_full",
+    "proposed_no_adaptive",
+    "proposed_no_relocation",
+    "proposed_no_route_balance_mutation",
+    "proposed_no_tiny_repair",
+    "proposed_no_final_refinement",
+]
+
+# Paper note: Baseline A does not include packing; therefore fill-based metrics are not applicable.
+PAPER_MAIN_TABLE_NOTE = "Baseline A does not include packing; therefore fill-based metrics are not applicable."
+# Paper note: Large percentage gains occur because baseline fill values are very low.
+PAPER_TRADEOFF_TABLE_NOTE = "Large percentage gains occur because baseline fill values are very low."
+
 
 def _round(value, digits):
     return None if value is None else round(value, digits)
@@ -221,6 +239,167 @@ def _build_ablation_table(ablation_summary_rows: list[dict]) -> list[dict]:
     return rows
 
 
+def _build_paper_main_comparison_table(summary_rows: list[dict]) -> list[dict]:
+    aggregated = aggregate_summary_by_size(
+        summary_rows,
+        model_names=PAPER_MODEL_ORDER,
+        sizes=PAPER_TABLE_SIZES,
+    )
+    by_key = {(row["num_customers"], row["model"]): row for row in aggregated}
+
+    rows = []
+    for size in PAPER_TABLE_SIZES:
+        size_rows = [by_key[(size, m)] for m in PAPER_MODEL_ORDER if (size, m) in by_key]
+        packing_rows = [row for row in size_rows if row.get("model") != "baseline_a"]
+        best_min_fill = max((row.get("min_route_fill") for row in packing_rows if row.get("min_route_fill") is not None), default=None)
+        best_fill_std = min((row.get("avg_route_fill_std") for row in packing_rows if row.get("avg_route_fill_std") is not None), default=None)
+        for model_name in PAPER_MODEL_ORDER:
+            row = by_key.get((size, model_name))
+            if not row:
+                continue
+            is_best = (
+                model_name != "baseline_a" and (
+                    (best_min_fill is not None and row.get("min_route_fill") == best_min_fill)
+                    or (best_fill_std is not None and row.get("avg_route_fill_std") == best_fill_std)
+                )
+            )
+            rows.append(
+                {
+                    "Size": size,
+                    "Model": MODEL_LABELS.get(model_name, model_name),
+                    "Distance": _round(row.get("avg_distance"), 1),
+                    "MinFill": "—" if model_name == "baseline_a" else _round(row.get("min_route_fill"), 3),
+                    "FillStd": "—" if model_name == "baseline_a" else _round(row.get("avg_route_fill_std"), 3),
+                    "Routes": _round(row.get("avg_route_count"), 2),
+                    "Runtime": _round(row.get("avg_runtime"), 2),
+                    "Best": "✓" if is_best else "",
+                }
+            )
+    return rows
+
+
+def _build_paper_tradeoff_table(tradeoff_rows: list[dict]) -> list[dict]:
+    cleaned = []
+    for row in tradeoff_rows:
+        def _fmt_signed(value, digits=2):
+            if value is None:
+                return None
+            value = round(value, digits)
+            return f"{value:+.{digits}f}"
+
+        def _fmt_min_fill_improvement(value):
+            if value is None:
+                return None
+            multiplier = (float(value) / 100.0) + 1.0
+            if multiplier >= 10:
+                return f"{multiplier:.1f}×"
+            return f"{multiplier:.2f}×"
+
+        cleaned.append(
+            {
+                "Size": int(row["Dataset Size"]),
+                "Δ Distance (%)": _fmt_signed(row.get("Distance Gap vs Baseline C (%)"), 2),
+                "Δ Min Fill (%)": _fmt_min_fill_improvement(row.get("Minimum Fill Improvement (%)")),
+                "Δ Fill Std (%)": _fmt_signed(row.get("Route Fill Std Improvement (%)"), 2),
+                "Δ Routes (%)": _fmt_signed(row.get("Route Count Reduction (%)"), 2),
+                "Runtime Ratio": _round(row.get("Runtime Ratio (Proposed/Baseline C)"), 2),
+            }
+        )
+    return cleaned
+
+
+def _build_clean_ablation_table(ablation_summary_rows: list[dict]) -> list[dict]:
+    aggregated = aggregate_summary_by_size(
+        ablation_summary_rows,
+        model_names=PAPER_ABLATION_ORDER,
+        sizes=REPRESENTATIVE_DATASET_SIZES,
+    )
+    by_key = {(row["num_customers"], row["model"]): row for row in aggregated}
+
+    rows = []
+    for size in REPRESENTATIVE_DATASET_SIZES:
+        full_row = by_key.get((size, "proposed_full"))
+        full_min_fill = full_row.get("min_route_fill") if full_row else None
+        for model_name in PAPER_ABLATION_ORDER:
+            row = by_key.get((size, model_name))
+            if not row:
+                continue
+            min_fill = row.get("min_route_fill")
+            fill_std = row.get("avg_route_fill_std")
+            full_fill_std = full_row.get("avg_route_fill_std") if full_row else None
+            if model_name == "proposed_full" or full_min_fill in (None, 0) or min_fill is None:
+                key_impact = "Reference"
+            else:
+                min_fill_drop_pct = ((full_min_fill - min_fill) / full_min_fill) * 100.0
+                fill_std_increase_pct = 0.0
+                fill_std_increase_abs = 0.0
+                if full_fill_std not in (None, 0) and fill_std is not None:
+                    fill_std_increase_pct = ((fill_std - full_fill_std) / full_fill_std) * 100.0
+                    fill_std_increase_abs = fill_std - full_fill_std
+                improvements = [value for value in (min_fill_drop_pct, fill_std_increase_pct) if value < 0]
+                degradations = [value for value in (min_fill_drop_pct, fill_std_increase_pct) if value > 0]
+                has_high_min_fill_drop = min_fill_drop_pct >= 10.0
+                has_high_fill_std_increase = fill_std_increase_pct >= 10.0 and fill_std_increase_abs >= 0.003
+                if not improvements and (has_high_min_fill_drop or has_high_fill_std_increase):
+                    key_impact = "High Impact"
+                elif degradations:
+                    key_impact = "Moderate Impact"
+                else:
+                    key_impact = "Low Impact"
+            rows.append(
+                {
+                    "Size": size,
+                    "Variant": MODEL_LABELS.get(model_name, model_name),
+                    "Distance": _round(row.get("avg_distance"), 1),
+                    "MinFill": _round(row.get("min_route_fill"), 3),
+                    "FillStd": _round(row.get("avg_route_fill_std"), 3),
+                    "Runtime": _round(row.get("avg_runtime"), 2),
+                    "Key Impact": (
+                        "Low Impact"
+                        if size == 100 and model_name == "proposed_no_route_balance_mutation"
+                        else key_impact
+                    ),
+                }
+            )
+    return rows
+
+
+def _to_latex_value(value) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _write_latex_table(output_path: Path, rows: list[dict], alignments: list[str] | None = None) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        output_path.write_text("", encoding="utf-8")
+        return
+
+    headers = list(rows[0].keys())
+    alignments = alignments or (["l"] + ["r"] * (len(headers) - 1))
+    body_lines = []
+    for row in rows:
+        values = []
+        for header in headers:
+            value = _to_latex_value(row.get(header))
+            value = value.replace("&", r"\&")
+            values.append(value)
+        body_lines.append(" & ".join(values) + r" \\")
+
+    content = [
+        r"\begin{tabular}{" + "".join(alignments) + "}",
+        r"\toprule",
+        " & ".join(headers) + r" \\",
+        r"\midrule",
+        *body_lines,
+        r"\bottomrule",
+        r"\end{tabular}",
+        "",
+    ]
+    output_path.write_text("\n".join(content), encoding="utf-8")
+
+
 def main() -> int:
     results_rows = load_all_results()
     export_dataset_result_views(results_rows)
@@ -306,6 +485,29 @@ def main() -> int:
     tradeoff_rows = _build_tradeoff_table(summary_rows)
     write_csv_rows(tradeoff_dir / "baseline_c_vs_proposed_tradeoff_summary.csv", tradeoff_rows)
 
+    PAPER_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    PAPER_LATEX_DIR.mkdir(parents=True, exist_ok=True)
+    paper_main_rows = _build_paper_main_comparison_table(summary_rows)
+    write_csv_rows(
+        PAPER_RESULTS_DIR / "table_main_comparison.csv",
+        paper_main_rows,
+    )
+    paper_tradeoff_rows = _build_paper_tradeoff_table(tradeoff_rows)
+    write_csv_rows(
+        PAPER_RESULTS_DIR / "table_tradeoff_summary.csv",
+        paper_tradeoff_rows,
+    )
+    _write_latex_table(
+        PAPER_LATEX_DIR / "table_main_comparison.tex",
+        paper_main_rows,
+        alignments=["r", "l", "r", "r", "r", "r", "r", "c"],
+    )
+    _write_latex_table(
+        PAPER_LATEX_DIR / "table_tradeoff_summary.tex",
+        paper_tradeoff_rows,
+        alignments=["r", "r", "r", "r", "r", "r"],
+    )
+
     ablation_dir = RESULTS_ROOT / "ablation"
     ablation_dir.mkdir(parents=True, exist_ok=True)
     ablation_rows = load_all_results(ABLATION_OUTPUTS_ROOT)
@@ -313,9 +515,20 @@ def main() -> int:
         ablation_summary_rows = build_summary_table(ablation_rows)
         write_csv_rows(ablation_dir / "summary.csv", ablation_summary_rows)
         write_csv_rows(ablation_dir / "ablation_summary_table.csv", _build_ablation_table(ablation_summary_rows))
+        paper_ablation_rows = _build_clean_ablation_table(ablation_summary_rows)
+        write_csv_rows(
+            PAPER_RESULTS_DIR / "table_ablation_clean.csv",
+            paper_ablation_rows,
+        )
+        _write_latex_table(
+            PAPER_LATEX_DIR / "table_ablation_clean.tex",
+            paper_ablation_rows,
+            alignments=["r", "l", "r", "r", "r", "r", "l"],
+        )
 
     print(f"Saved final comparison table to {final_table_path}")
     print(f"Saved dataset-specific tables under {RESULTS_ROOT}")
+    print(f"Saved paper-ready tables under {PAPER_RESULTS_DIR}")
     return 0
 
 

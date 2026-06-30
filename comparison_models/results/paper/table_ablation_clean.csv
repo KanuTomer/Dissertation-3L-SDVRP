@@ -1,0 +1,25 @@
+Size,Variant,Distance,MinFill,FillStd,Runtime,Key Impact
+100,Full Proposed,24256.4,0.056,0.009,85.37,Reference
+100,No Adaptive Decoding,22351.1,0.048,0.018,43.51,High Impact
+100,No Relocation Repair,24060.4,0.053,0.011,58.08,Moderate Impact
+100,No Route-Balance Mutation,23704.9,0.063,0.011,92.61,Low Impact
+100,No Tiny-Route Repair,24256.4,0.056,0.009,92.55,Low Impact
+100,No Final-Best Refinement,24256.4,0.056,0.009,84.33,Low Impact
+250,Full Proposed,83432.3,0.063,0.012,105.13,Reference
+250,No Adaptive Decoding,81860.5,0.032,0.015,72.25,High Impact
+250,No Relocation Repair,83439.7,0.057,0.012,94.44,Moderate Impact
+250,No Route-Balance Mutation,84356.8,0.06,0.011,123.13,Moderate Impact
+250,No Tiny-Route Repair,83432.3,0.063,0.012,124.35,Low Impact
+250,No Final-Best Refinement,83432.3,0.063,0.012,107.49,Low Impact
+500,Full Proposed,208235.1,0.051,0.014,177.26,Reference
+500,No Adaptive Decoding,203763.1,0.011,0.016,91.17,High Impact
+500,No Relocation Repair,208050.5,0.041,0.015,137.47,High Impact
+500,No Route-Balance Mutation,205588.3,0.047,0.014,177.42,Moderate Impact
+500,No Tiny-Route Repair,207817.0,0.047,0.014,177.91,Moderate Impact
+500,No Final-Best Refinement,208235.1,0.051,0.014,176.27,Low Impact
+750,Full Proposed,336568.2,0.035,0.014,231.05,Reference
+750,No Adaptive Decoding,335554.0,0.026,0.015,139.83,High Impact
+750,No Relocation Repair,337634.1,0.026,0.014,192.51,High Impact
+750,No Route-Balance Mutation,335865.6,0.034,0.014,236.36,Moderate Impact
+750,No Tiny-Route Repair,335537.3,0.033,0.015,238.64,Moderate Impact
+750,No Final-Best Refinement,336568.2,0.035,0.014,230.52,Low Impact
